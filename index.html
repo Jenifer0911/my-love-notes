@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Love Notes</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#2f2a45;--bg:#2b2640;--card:#fbf3ea;--pri:#e58fa8;--blue:#7c8fe0;--green:#8fcfa8;--yellow:#f3d98b;--purple:#b7a6e8}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:'Baloo 2','Comic Sans MS',system-ui,sans-serif;color:#f3ecff;background-color:var(--bg);
+background-image:radial-gradient(#ffffff14 3px,transparent 3px),radial-gradient(#e58fa81c 3px,transparent 3px);background-size:40px 40px;background-position:0 0,20px 20px;min-height:100vh;font-size:17px}
+button,input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
+.card,.folder,.note,.file,.btn{color:var(--ink)}
+.btn{border:3px solid var(--ink);background:#fbf3ea;border-radius:14px;padding:6px 14px;cursor:pointer;font-weight:700;box-shadow:3px 3px 0 var(--ink);transition:.08s}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+.btn.pri{background:var(--pri);color:#fff}
+.btn.blue{background:var(--blue);color:#fff}
+.btn.green{background:var(--green)}
+.btn.sm{padding:2px 10px;font-size:15px}
+input[type=text],input[type=email],input[type=password],textarea,select{width:100%;border:3px solid var(--ink);border-radius:12px;padding:8px 12px;background:#fffaf3;color:#2f2a45;outline:none}
+input:focus,textarea:focus{box-shadow:0 0 0 4px #74c0fc88}
+label{display:block;font-weight:700;margin:10px 0 4px}
+[hidden]{display:none!important}
+.card{background:var(--card);border:3px solid var(--ink);border-radius:20px;box-shadow:5px 5px 0 var(--ink)}
+
+/* auth */
+#auth{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px}
+#auth .card{width:100%;max-width:400px;padding:22px;text-align:center}
+#auth h1{margin:6px 0 0;font-size:34px;font-weight:800;color:var(--pri)}
+#auth p.sub{margin:0 0 10px;opacity:.75}
+.tabs{display:flex;gap:8px;margin:12px 0}
+.tabs button{flex:1}
+.tabs .on{background:var(--yellow)}
+#auth form{text-align:left}
+#auth .err{color:#c92a2a;font-weight:700;min-height:24px}
+
+/* app */
+header{display:flex;gap:10px;align-items:center;padding:10px 16px;background:var(--blue);border-bottom:4px solid var(--ink);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+header .logo{font-weight:800;font-size:24px;color:#fff;text-shadow:2px 2px 0 var(--ink);cursor:pointer;white-space:nowrap}
+header .search{flex:1;min-width:160px}
+header .who{font-size:14px;color:#fff;font-weight:700}
+main{max-width:1100px;margin:0 auto;padding:18px 14px 60px}
+h2.title{margin:6px 0 14px;font-size:26px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:18px}
+.folder{position:relative;padding:16px 10px 12px;text-align:center;cursor:pointer;border:3px solid var(--ink);border-radius:20px;box-shadow:5px 5px 0 var(--ink);transition:.1s}
+.folder:hover{transform:translateY(-4px) rotate(-1deg)}
+.folder .ic{font-size:54px;line-height:1.1}
+.folder .nm{font-weight:800;font-size:19px;word-break:break-word}
+.folder .ct{font-size:14px;opacity:.75}
+.folder .badge{position:absolute;top:6px;left:8px;font-size:18px}
+.folder.new{background:#3a3458;color:#f3ecff;border-color:#8c82bd;box-shadow:5px 5px 0 #1f1b33;border-style:dashed;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:140px}
+.folder.new .ic{font-size:44px}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.bar .grow{flex:1}
+.split{display:grid;grid-template-columns:300px 1fr;gap:18px}
+@media(max-width:760px){.split{grid-template-columns:1fr}}
+.notes{padding:12px;max-height:75vh;overflow:auto}
+.note{padding:8px 10px;border:3px solid var(--ink);border-radius:14px;margin:8px 0;cursor:pointer;background:#f6ecdd}
+.note.on{background:var(--yellow)}
+.note b{display:block;word-break:break-word}
+.note small{opacity:.7}
+.editor{padding:16px}
+.editor textarea{min-height:260px;resize:vertical;line-height:1.5}
+.moods{display:flex;gap:6px;flex-wrap:wrap}
+.moods button{font-size:24px;border:3px solid transparent;background:none;border-radius:12px;cursor:pointer}
+.moods button.sel{border-color:var(--ink);background:var(--yellow)}
+.files{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
+.file{border:3px solid var(--ink);border-radius:12px;padding:6px 8px;background:#e6e9fb;max-width:200px;font-size:14px;word-break:break-all}
+.file img{display:block;max-width:100%;max-height:110px;border-radius:8px;margin-bottom:4px}
+.file a{color:var(--ink);font-weight:700}
+.hint{padding:30px;text-align:center;opacity:.8}
+.results{margin-top:20px}
+.results .note{background:#fff}
+
+/* modal */
+#ov{position:fixed;inset:0;background:#0008;display:flex;align-items:center;justify-content:center;padding:14px;z-index:20}
+#ov .card{width:100%;max-width:440px;padding:20px;max-height:92vh;overflow:auto}
+#ov h2{margin:0 0 6px}
+.picker{display:flex;flex-wrap:wrap;gap:6px}
+.picker button{width:44px;height:44px;border:3px solid transparent;border-radius:12px;background:#f1f3f5;font-size:24px;cursor:pointer}
+.picker button.sel{border-color:var(--ink);box-shadow:2px 2px 0 var(--ink)}
+.chk{display:flex;gap:8px;align-items:center;margin-top:14px}
+.chk input{width:22px;height:22px}
+.row{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+small.t{display:block;opacity:.7;margin-top:6px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--yellow);color:var(--ink);border:3px solid var(--ink);padding:10px 18px;border-radius:14px;z-index:30;font-weight:700;max-width:90%}
+</style>
+</head>
+<body>
+
+<!-- LOGIN / SIGNUP -->
+<div id="auth">
+  <div class="card">
+    <div style="font-size:72px;line-height:1.1" aria-hidden="true">🥰</div>
+    <h1>My Love Notes</h1>
+    <p class="sub">Un rahasiyam, un diary 🔒</p>
+    <div class="tabs">
+      <button class="btn on" id="tab-login" type="button">Login</button>
+      <button class="btn" id="tab-signup" type="button">Sign up</button>
+    </div>
+    <form id="auth-form">
+      <label for="a-email">Email</label>
+      <input type="email" id="a-email" required autocomplete="email" placeholder="you@mail.com">
+      <label for="a-pass">Password</label>
+      <input type="password" id="a-pass" required minlength="6" autocomplete="current-password" placeholder="min 6 characters">
+      <div class="err" id="a-err"></div>
+      <button class="btn pri" style="width:100%" id="a-go">Login</button>
+    </form>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" hidden>
+  <header>
+    <span class="logo" id="logo">🥰 My Love Notes</span>
+    <input type="text" class="search" id="q" placeholder="🔍 Search..." autocomplete="off">
+    <span class="who" id="who"></span>
+    <button class="btn sm" id="logout">Logout</button>
+  </header>
+  <main id="main"></main>
+</div>
+
+<div id="ov" hidden></div>
+<div id="toast" hidden></div>
+
+<script>
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+const ICONS = ['📁','📔','⭐','🌈','🎈','🍕','🐶','🐱','🚀','🎮','🎵','⚽','🌸','🍦','💖','🔒'];
+const COLORS = ['#f3d98b','#e8a0a0','#9fb4ee','#9fd8b5','#c9b8f0','#f0b98a','#8fd3dc','#efb3cf'];
+const MOODS = ['😀','😊','😐','😢','😡','😴'];
+
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2600)}
+function modal(html){const o=$('#ov');o.innerHTML='<div class="card">'+html+'</div>';o.hidden=false;return o.firstChild}
+function closeModal(){$('#ov').hidden=true;$('#ov').innerHTML=''}
+$('#ov').addEventListener('mousedown',e=>{if(e.target.id==='ov')closeModal()});
+
+/* ---------- storage (IndexedDB) ---------- */
+const idb = new Promise((res,rej)=>{const r=indexedDB.open('pocketdiary',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+async function kvGet(k){const d=await idb;return new Promise((res,rej)=>{const q=d.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
+async function kvSet(k,v){const d=await idb;return new Promise((res,rej)=>{const t=d.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=()=>res();t.onerror=()=>rej(t.error)})}
+
+/* ---------- crypto ---------- */
+const enc = new TextEncoder(), dec = new TextDecoder();
+const toB64 = buf => {const a=new Uint8Array(buf);let s='';for(let i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s)};
+const fromB64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function baseKey(pw){return crypto.subtle.importKey('raw',enc.encode(pw),'PBKDF2',false,['deriveKey','deriveBits'])}
+async function deriveKey(pw,salt){return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:150000,hash:'SHA-256'},await baseKey(pw),{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function hashPw(pw,salt){return toB64(await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations:150000,hash:'SHA-256'},await baseKey(pw),256))}
+async function encryptObj(key,obj){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,enc.encode(JSON.stringify(obj)));return {iv:toB64(iv),data:toB64(ct)}}
+async function decryptObj(key,iv,data){const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:fromB64(iv)},key,fromB64(data));return JSON.parse(dec.decode(pt))}
+
+/* ---------- state ---------- */
+let me = null, data = null;
+let unlocked = {};            // id -> {key, content, pw}
+let view = {name:'home'};     // or {name:'folder', id}
+let draft = null;             // note being edited
+
+const visibleFolders = () => {
+  const out=[];
+  for(const f of data.folders){
+    if(f.locked){const u=unlocked[f.id];if(u)out.push({id:f.id,c:u.content,locked:true})}
+    else out.push({id:f.id,c:f,locked:false});
+  }
+  return out;
+};
+const findFolder = id => visibleFolders().find(x=>x.id===id);
+async function persist(){
+  for(const f of data.folders){
+    if(f.locked && unlocked[f.id]){const u=unlocked[f.id];const e=await encryptObj(u.key,u.content);f.iv=e.iv;f.data=e.data}
+  }
+  await kvSet('data:'+me,data);
+}
+
+/* ---------- auth ---------- */
+let mode = 'login';
+function setMode(m){
+  mode=m;
+  $('#tab-login').classList.toggle('on',m==='login');
+  $('#tab-signup').classList.toggle('on',m==='signup');
+  $('#a-go').textContent = m==='login' ? 'Login' : 'Create account';
+  $('#a-pass').autocomplete = m==='login' ? 'current-password' : 'new-password';
+  $('#a-err').textContent='';
+}
+$('#tab-login').onclick=()=>setMode('login');
+$('#tab-signup').onclick=()=>setMode('signup');
+$('#auth-form').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const email=$('#a-email').value.trim().toLowerCase(), pw=$('#a-pass').value;
+  const err=$('#a-err'); err.textContent='';
+  try{
+    const u = await kvGet('user:'+email);
+    if(mode==='signup'){
+      if(u){err.textContent='Indha email already irukku. Login pannunga.';return}
+      const salt=crypto.getRandomValues(new Uint8Array(16));
+      await kvSet('user:'+email,{salt:toB64(salt),hash:await hashPw(pw,salt)});
+      await kvSet('data:'+email,{folders:[{id:uid(),name:'My Diary',icon:'📔',color:COLORS[0],notes:[]}]});
+    }else{
+      if(!u){err.textContent='Account illa. Sign up pannunga.';return}
+      if(await hashPw(pw,fromB64(u.salt))!==u.hash){err.textContent='Password thappu 😕';return}
+    }
+    localStorage.setItem('pd_session',email);
+    await startSession(email);
+  }catch(x){err.textContent='Error: '+x.message}
+});
+async function startSession(email){
+  me=email; data=await kvGet('data:'+email)||{folders:[]};
+  unlocked={}; view={name:'home'}; draft=null;
+  $('#auth').hidden=true; $('#app').hidden=false; $('#who').textContent=email; $('#q').value='';
+  render();
+}
+$('#logout').onclick=()=>{localStorage.removeItem('pd_session');me=null;data=null;unlocked={};draft=null;$('#app').hidden=true;$('#auth').hidden=false;$('#a-pass').value='';$('#q').value=''};
+$('#logo').onclick=()=>goHome();
+(async()=>{const s=localStorage.getItem('pd_session');if(s&&await kvGet('user:'+s))startSession(s)})();
+
+/* ---------- navigation ---------- */
+function goHome(){
+  if(draft?.dirty && !confirm('Save pannala. Podhum nu poidalama?'))return;
+  draft=null; view={name:'home'}; unlocked={}; $('#q').value=''; render();
+}
+function openFolder(id){view={name:'folder',id};draft=null;$('#q').value='';render()}
+
+/* ---------- search (also reveals secret folders) ---------- */
+let st;
+$('#q').addEventListener('input',()=>{clearTimeout(st);st=setTimeout(onSearch,350);if(view.name==='folder')render()});
+async function onSearch(){
+  const q=$('#q').value;
+  if(view.name!=='home'){render();return}
+  const next={};
+  if(q){
+    for(const f of data.folders.filter(f=>f.locked)){
+      if(unlocked[f.id]&&unlocked[f.id].pw===q){next[f.id]=unlocked[f.id];continue}
+      try{
+        const key=await deriveKey(q,fromB64(f.salt));
+        const content=await decryptObj(key,f.iv,f.data);
+        next[f.id]={key,content,pw:q};
+      }catch(e){/* wrong password = stays hidden */}
+    }
+  }
+  unlocked=next;
+  render();
+}
+
+/* ---------- render ---------- */
+function render(){
+  if(!me)return;
+  const m=$('#main');
+  if(view.name==='home')m.innerHTML=renderHome();
+  else{
+    const f=findFolder(view.id);
+    if(!f){view={name:'home'};m.innerHTML=renderHome();return}
+    m.innerHTML=renderFolder(f);
+  }
+}
+
+function renderHome(){
+  const q=$('#q').value.trim().toLowerCase();
+  const all=visibleFolders();
+  const list=q?all.filter(f=>f.locked||f.c.name.toLowerCase().includes(q)):all;
+  let h='<h2 class="title">📚 En Folders</h2><div class="grid">';
+  for(const f of list){
+    h+=`<div class="folder" style="background:${esc(f.c.color)}" data-act="open-folder" data-id="${f.id}">
+      ${f.locked?'<span class="badge">🔒</span>':''}
+      <div class="ic">${esc(f.c.icon)}</div><div class="nm">${esc(f.c.name)}</div>
+      <div class="ct">${f.c.notes.length} notes</div></div>`;
+  }
+  if(!q)h+=`<div class="folder new" data-act="new-folder"><div class="ic">➕</div><div class="nm">New Folder</div></div>`;
+  h+='</div>';
+  if(q){
+    const hits=[];
+    for(const f of all)for(const n of f.c.notes){
+      if((n.title+' '+n.body).toLowerCase().includes(q))hits.push({f,n});
+    }
+    if(hits.length){
+      h+='<div class="results"><h2 class="title">📝 Notes found</h2>';
+      for(const {f,n} of hits)h+=`<div class="note" data-act="open-result" data-id="${f.id}" data-nid="${n.id}"><b>${esc(n.mood||'')} ${esc(n.title||'(no title)')}</b><small>${esc(f.c.icon)} ${esc(f.c.name)} · ${new Date(n.updated).toLocaleDateString()}</small></div>`;
+      h+='</div>';
+    }
+  }
+  return h;
+}
+
+function renderFolder(f){
+  const q=$('#q').value.trim().toLowerCase();
+  let notes=[...f.c.notes].sort((a,b)=>b.updated-a.updated);
+  if(q)notes=notes.filter(n=>(n.title+' '+n.body).toLowerCase().includes(q));
+  let h=`<div class="bar">
+    <button class="btn" data-act="back">⬅ Back</button>
+    <h2 class="title grow" style="margin:0">${f.locked?'🔒 ':''}${esc(f.c.icon)} ${esc(f.c.name)}</h2>
+    <button class="btn sm" data-act="edit-folder">✏️ Edit</button>
+    ${f.locked
+      ?'<button class="btn sm" data-act="unlock-folder">🔓 Remove lock</button><button class="btn sm blue" data-act="hide-folder">🙈 Hide</button>'
+      :'<button class="btn sm" data-act="lock-folder">🔒 Lock</button>'}
+    <button class="btn sm pri" data-act="del-folder">🗑 Delete</button>
+  </div>
+  <div class="split"><div class="card notes">
+    <button class="btn green" style="width:100%" data-act="new-note">➕ New note</button>`;
+  if(!notes.length)h+='<div class="hint">Note illa 🙈</div>';
+  for(const n of notes)h+=`<div class="note ${draft&&draft.id===n.id?'on':''}" data-act="open-note" data-id="${n.id}"><b>${esc(n.mood||'')} ${esc(n.title||'(no title)')}</b><small>${new Date(n.updated).toLocaleString()}${n.files?.length?' · 📎'+n.files.length:''}</small></div>`;
+  h+='</div><div class="card editor">';
+  if(!draft)h+='<div class="hint">👈 Oru note select pannunga, illana puthusa create pannunga ✨</div>';
+  else{
+    h+=`<label>Title</label><input type="text" id="n-title" maxlength="80" value="${esc(draft.title)}" placeholder="Innaiku enna nadanthuchu?">
+    <label>Mood</label><div class="moods">${MOODS.map(m=>`<button type="button" data-act="mood" data-v="${m}" class="${draft.mood===m?'sel':''}">${m}</button>`).join('')}</div>
+    <label>Diary</label><textarea id="n-body" placeholder="Inge ezhuthunga...">${esc(draft.body)}</textarea>
+    <label>📎 Files (photo, pdf, edhuvum - max 3MB)</label>
+    <input type="file" id="n-file" multiple>
+    <div class="files">${draft.files.map((x,i)=>`<div class="file">${(x.type||'').startsWith('image/')?`<img src="${x.data}" alt="">`:''}<a href="${x.data}" download="${esc(x.name)}" target="_blank" rel="noopener">${esc(x.name)}</a><br><button class="btn sm" data-act="rm-file" data-i="${i}">✖</button></div>`).join('')}</div>
+    <div class="row" style="justify-content:space-between"><button class="btn pri" data-act="del-note">🗑 Delete</button><button class="btn green" data-act="save-note">💾 Save</button></div>`;
+  }
+  return h+'</div></div>';
+}
+
+/* ---------- click handling ---------- */
+document.addEventListener('click',async e=>{
+  const el=e.target.closest('[data-act]');if(!el||!me)return;
+  const act=el.dataset.act,id=el.dataset.id;
+  if(act==='new-folder')return folderModal(null);
+  if(act==='open-folder')return openFolder(id);
+  if(act==='open-result'){view={name:'folder',id};$('#q').value='';draft=null;render();return openNote(el.dataset.nid)}
+  if(act==='back')return goHome();
+  const f=view.name==='folder'?findFolder(view.id):null;
+  if(!f)return;
+  if(act==='edit-folder')return folderModal(f);
+  if(act==='lock-folder')return lockModal(f);
+  if(act==='unlock-folder')return removeLock(f);
+  if(act==='hide-folder'){await persist();unlocked={};draft=null;view={name:'home'};$('#q').value='';render();return toast('Folder maraichachu 🙈')}
+  if(act==='del-folder'){
+    if(!confirm(`"${f.c.name}" folder-a, ulla ella notes-oda delete pannalama?`))return;
+    data.folders=data.folders.filter(x=>x.id!==f.id);delete unlocked[f.id];
+    await persist();draft=null;view={name:'home'};render();return toast('Folder deleted');
+  }
+  if(act==='new-note'){
+    if(draft?.dirty&&!confirm('Save pannala. Podhum nu poidalama?'))return;
+    draft={id:uid(),title:'',body:'',mood:'😊',files:[],created:Date.now(),updated:Date.now(),isNew:true,dirty:false};
+    render();return;
+  }
+  if(act==='open-note'){
+    if(draft?.dirty&&draft.id!==id&&!confirm('Save pannala. Podhum nu poidalama?'))return;
+    return openNote(id);
+  }
+  if(act==='mood'){draft.mood=el.dataset.v;draft.dirty=true;render();return}
+  if(act==='rm-file'){draft.files.splice(+el.dataset.i,1);draft.dirty=true;render();return}
+  if(act==='save-note'){
+    if(!draft.title.trim()&&!draft.body.trim()&&!draft.files.length)return toast('Edhavadhu ezhuthunga 😅');
+    const {isNew,dirty,...note}=draft;note.updated=Date.now();
+    const i=f.c.notes.findIndex(n=>n.id===note.id);
+    if(i>=0)f.c.notes[i]=note;else f.c.notes.push(note);
+    try{await persist()}catch(x){return toast('Save aagala: '+x.message)}
+    draft={...note,isNew:false,dirty:false};render();return toast('Saved ✅');
+  }
+  if(act==='del-note'){
+    if(!confirm('Indha note-a delete pannalama?'))return;
+    f.c.notes=f.c.notes.filter(n=>n.id!==draft.id);
+    await persist();draft=null;render();return toast('Note deleted');
+  }
+});
+function openNote(id){
+  const f=findFolder(view.id);const n=f?.c.notes.find(n=>n.id===id);if(!n)return;
+  draft=JSON.parse(JSON.stringify(n));draft.files=draft.files||[];draft.dirty=false;render();
+}
+document.addEventListener('input',e=>{
+  if(!draft)return;
+  if(e.target.id==='n-title'){draft.title=e.target.value;draft.dirty=true}
+  if(e.target.id==='n-body'){draft.body=e.target.value;draft.dirty=true}
+});
+document.addEventListener('change',async e=>{
+  if(e.target.id!=='n-file'||!draft)return;
+  for(const file of e.target.files){
+    if(file.size>3*1024*1024){toast('Romba periya file: '+file.name);continue}
+    const d=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(file)});
+    draft.files.push({name:file.name,type:file.type,data:d});
+  }
+  draft.dirty=true;render();
+});
+window.addEventListener('beforeunload',e=>{if(draft?.dirty){e.preventDefault();e.returnValue=''}});
+
+/* ---------- folder modals ---------- */
+function folderModal(f){
+  let icon=f?f.c.icon:ICONS[0],color=f?f.c.color:COLORS[0];
+  const box=modal(`<h2>${f?'✏️ Edit folder':'➕ New folder'}</h2>
+    <label>Name</label><input type="text" id="fm-name" maxlength="30" value="${esc(f?f.c.name:'')}" placeholder="Folder name">
+    <label>Symbol</label><div class="picker" id="fm-icons">${ICONS.map(i=>`<button type="button" data-v="${i}" class="${i===icon?'sel':''}">${i}</button>`).join('')}</div>
+    <label>Colour</label><div class="picker" id="fm-colors">${COLORS.map(c=>`<button type="button" data-v="${c}" style="background:${c}" class="${c===color?'sel':''}"></button>`).join('')}</div>
+    ${f?'':`<label class="chk"><input type="checkbox" id="fm-lock"> 🔒 Indha folder-a lock panni maraikanum</label>
+    <div id="fm-pw" hidden><label>Secret password</label><input type="password" id="fm-p1" autocomplete="new-password"><label>Confirm password</label><input type="password" id="fm-p2" autocomplete="new-password">
+    <small class="t">Search box-la indha password type panna mattum folder theriyum. Maranthuta recover panna mudiyathu!</small></div>`}
+    <div class="row"><button class="btn" id="fm-cancel">Cancel</button><button class="btn green" id="fm-ok">Save</button></div>`);
+  const pick=(sel,fn)=>box.querySelector(sel).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;box.querySelectorAll(sel+' button').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');fn(b.dataset.v)});
+  pick('#fm-icons',v=>icon=v);pick('#fm-colors',v=>color=v);
+  const lk=box.querySelector('#fm-lock');if(lk)lk.onchange=()=>box.querySelector('#fm-pw').hidden=!lk.checked;
+  box.querySelector('#fm-cancel').onclick=closeModal;
+  box.querySelector('#fm-ok').onclick=async()=>{
+    const name=box.querySelector('#fm-name').value.trim();if(!name)return toast('Name venum 🙂');
+    if(f){f.c.name=name;f.c.icon=icon;f.c.color=color;await persist();closeModal();render();return}
+    const content={name,icon,color,notes:[]};
+    if(lk&&lk.checked){
+      const p1=box.querySelector('#fm-p1').value,p2=box.querySelector('#fm-p2').value;
+      if(p1.length<4)return toast('Password kuranja 4 characters venum');
+      if(p1!==p2)return toast('Rendu password-um match aagala');
+      const salt=crypto.getRandomValues(new Uint8Array(16));
+      const key=await deriveKey(p1,salt);const e=await encryptObj(key,content);
+      data.folders.push({id:uid(),locked:true,salt:toB64(salt),iv:e.iv,data:e.data});
+      await kvSet('data:'+me,data);closeModal();render();
+      return toast('Locked! 🔒 Search-la password type panna thaan theriyum');
+    }
+    data.folders.push({id:uid(),...content});await persist();closeModal();render();
+  };
+}
+function lockModal(f){
+  const box=modal(`<h2>🔒 Lock "${esc(f.c.name)}"</h2>
+    <label>Secret password</label><input type="password" id="lk1" autocomplete="new-password">
+    <label>Confirm password</label><input type="password" id="lk2" autocomplete="new-password">
+    <small class="t">Lock aanathum folder maraindhidum. Home-la search box-la indha password type pannunga, folder thirumba varum. Password maranthuta recover panna mudiyathu!</small>
+    <div class="row"><button class="btn" id="lk-c">Cancel</button><button class="btn pri" id="lk-ok">Lock it</button></div>`);
+  box.querySelector('#lk-c').onclick=closeModal;
+  box.querySelector('#lk-ok').onclick=async()=>{
+    const p1=box.querySelector('#lk1').value,p2=box.querySelector('#lk2').value;
+    if(p1.length<4)return toast('Password kuranja 4 characters venum');
+    if(p1!==p2)return toast('Rendu password-um match aagala');
+    const salt=crypto.getRandomValues(new Uint8Array(16));
+    const key=await deriveKey(p1,salt);const e=await encryptObj(key,f.c);
+    const i=data.folders.findIndex(x=>x.id===f.id);
+    data.folders[i]={id:f.id,locked:true,salt:toB64(salt),iv:e.iv,data:e.data};
+    await kvSet('data:'+me,data);closeModal();draft=null;view={name:'home'};$('#q').value='';unlocked={};render();
+    toast('Locked! 🔒 Search-la password type panni thirumba paarunga');
+  };
+}
+async function removeLock(f){
+  if(!confirm('Lock-a edukkalama? Folder normal-a ellarukkum theriyum.'))return;
+  const i=data.folders.findIndex(x=>x.id===f.id);
+  data.folders[i]={id:f.id,...f.c};delete unlocked[f.id];
+  await kvSet('data:'+me,data);render();toast('Lock removed 🔓');
+}
+</script>
+</body>
+</html>
