@@ -15,6 +15,7 @@ button,input,textarea,select{font-family:inherit;font-size:inherit;color:inherit
 .card,.folder,.note,.file,.btn{color:var(--ink)}
 .btn{border:3px solid var(--ink);background:#fbf3ea;border-radius:14px;padding:6px 14px;cursor:pointer;font-weight:700;box-shadow:3px 3px 0 var(--ink);transition:.08s}
 .btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+.btn:disabled{opacity:.6;cursor:wait}
 .btn.pri{background:var(--pri);color:#fff}
 .btn.blue{background:var(--blue);color:#fff}
 .btn.green{background:var(--green)}
@@ -35,12 +36,15 @@ label{display:block;font-weight:700;margin:10px 0 4px}
 .tabs .on{background:var(--yellow)}
 #auth form{text-align:left}
 #auth .err{color:#c92a2a;font-weight:700;min-height:24px}
+#auth .ok{color:#2b8a3e;font-weight:700}
+.linkbtn{background:none;border:0;padding:0;color:#5c4fb0;text-decoration:underline;cursor:pointer;font-weight:700}
+.notice{background:#fff3bf;border:3px solid var(--ink);border-radius:14px;padding:10px;margin:10px 0;text-align:left;font-size:15px}
 
 /* app */
 header{display:flex;gap:10px;align-items:center;padding:10px 16px;background:var(--blue);border-bottom:4px solid var(--ink);position:sticky;top:0;z-index:5;flex-wrap:wrap}
 header .logo{font-weight:800;font-size:24px;color:#fff;text-shadow:2px 2px 0 var(--ink);cursor:pointer;white-space:nowrap}
 header .search{flex:1;min-width:160px}
-header .who{font-size:14px;color:#fff;font-weight:700}
+header .who{font-size:14px;color:#fff;font-weight:700;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 main{max-width:1100px;margin:0 auto;padding:18px 14px 60px}
 h2.title{margin:6px 0 14px;font-size:26px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:18px}
@@ -96,6 +100,9 @@ small.t{display:block;opacity:.7;margin-top:6px}
     <div style="font-size:72px;line-height:1.1" aria-hidden="true">🥰</div>
     <h1>My Love Notes</h1>
     <p class="sub">Un rahasiyam, un diary 🔒</p>
+    <div class="notice" id="setup-notice" hidden>
+      ⚙️ Firebase setup innum mudiyala. <b>index.html</b> file-la mela irukkura <b>firebaseConfig</b>-a unga Firebase details-oda maathunga.
+    </div>
     <div class="tabs">
       <button class="btn on" id="tab-login" type="button">Login</button>
       <button class="btn" id="tab-signup" type="button">Sign up</button>
@@ -107,6 +114,7 @@ small.t{display:block;opacity:.7;margin-top:6px}
       <input type="password" id="a-pass" required minlength="6" autocomplete="current-password" placeholder="min 6 characters">
       <div class="err" id="a-err"></div>
       <button class="btn pri" style="width:100%" id="a-go">Login</button>
+      <p style="text-align:center;margin:12px 0 0" id="forgot-wrap"><button type="button" class="linkbtn" id="forgot">Password maranthuttingala?</button></p>
     </form>
   </div>
 </div>
@@ -125,7 +133,29 @@ small.t{display:block;opacity:.7;margin-top:6px}
 <div id="ov" hidden></div>
 <div id="toast" hidden></div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* =====================================================================
+   STEP: Firebase console-la kudukkura firebaseConfig-a inga paste pannunga.
+   (ippo irukkura PASTE_... values-a thookki, unga real values podunga)
+   ===================================================================== */
+const firebaseConfig = {
+  apiKey: "PASTE_API_KEY_HERE",
+  authDomain: "PASTE_AUTH_DOMAIN_HERE",
+  projectId: "PASTE_PROJECT_ID_HERE",
+  storageBucket: "PASTE_STORAGE_BUCKET_HERE",
+  messagingSenderId: "PASTE_SENDER_ID_HERE",
+  appId: "PASTE_APP_ID_HERE"
+};
+/* ===================================================================== */
+
+const configured = !String(firebaseConfig.apiKey).startsWith('PASTE');
+let auth = null, db = null;
+if (configured) { const app = initializeApp(firebaseConfig); auth = getAuth(app); db = getFirestore(app); }
+
 /* ---------- helpers ---------- */
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -134,31 +164,33 @@ const ICONS = ['📁','📔','⭐','🌈','🎈','🍕','🐶','🐱','🚀','�
 const COLORS = ['#f3d98b','#e8a0a0','#9fb4ee','#9fd8b5','#c9b8f0','#f0b98a','#8fd3dc','#efb3cf'];
 const MOODS = ['😀','😊','😐','😢','😡','😴'];
 
-function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2600)}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2800)}
 function modal(html){const o=$('#ov');o.innerHTML='<div class="card">'+html+'</div>';o.hidden=false;return o.firstChild}
 function closeModal(){$('#ov').hidden=true;$('#ov').innerHTML=''}
 $('#ov').addEventListener('mousedown',e=>{if(e.target.id==='ov')closeModal()});
+const blobToDataURL = b => new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(b)});
 
-/* ---------- storage (IndexedDB) ---------- */
-const idb = new Promise((res,rej)=>{const r=indexedDB.open('pocketdiary',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
-async function kvGet(k){const d=await idb;return new Promise((res,rej)=>{const q=d.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
-async function kvSet(k,v){const d=await idb;return new Promise((res,rej)=>{const t=d.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=()=>res();t.onerror=()=>rej(t.error)})}
-
-/* ---------- crypto ---------- */
+/* ---------- crypto (locked folders) ---------- */
 const enc = new TextEncoder(), dec = new TextDecoder();
 const toB64 = buf => {const a=new Uint8Array(buf);let s='';for(let i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s)};
 const fromB64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
-async function baseKey(pw){return crypto.subtle.importKey('raw',enc.encode(pw),'PBKDF2',false,['deriveKey','deriveBits'])}
+async function baseKey(pw){return crypto.subtle.importKey('raw',enc.encode(pw),'PBKDF2',false,['deriveKey'])}
 async function deriveKey(pw,salt){return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:150000,hash:'SHA-256'},await baseKey(pw),{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
-async function hashPw(pw,salt){return toB64(await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations:150000,hash:'SHA-256'},await baseKey(pw),256))}
-async function encryptObj(key,obj){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,enc.encode(JSON.stringify(obj)));return {iv:toB64(iv),data:toB64(ct)}}
-async function decryptObj(key,iv,data){const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:fromB64(iv)},key,fromB64(data));return JSON.parse(dec.decode(pt))}
+async function encryptBytes(key,bytes){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,bytes);return {iv:toB64(iv),data:toB64(ct)}}
+async function decryptBytes(key,iv,data){return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:fromB64(iv)},key,fromB64(data)))}
+async function encryptObj(key,obj){return encryptBytes(key,enc.encode(JSON.stringify(obj)))}
+async function decryptObj(key,iv,data){return JSON.parse(dec.decode(await decryptBytes(key,iv,data)))}
 
 /* ---------- state ---------- */
-let me = null, data = null;
-let unlocked = {};            // id -> {key, content, pw}
-let view = {name:'home'};     // or {name:'folder', id}
-let draft = null;             // note being edited
+let me = null, myEmail = '';
+let data = {folders:[]};      // raw folders (plain: has notes[]; locked: salt/iv/data)
+let unlocked = {};            // id -> {key, content:{name,icon,color,notes}, pw}
+let view = {name:'home'};
+let draft = null;
+let blobCache = {};           // fileId -> url to show
+
+const col  = n => collection(db,'users',me,n);
+const dref = (n,id) => doc(db,'users',me,n,id);
 
 const visibleFolders = () => {
   const out=[];
@@ -169,78 +201,162 @@ const visibleFolders = () => {
   return out;
 };
 const findFolder = id => visibleFolders().find(x=>x.id===id);
-async function persist(){
-  for(const f of data.folders){
-    if(f.locked && unlocked[f.id]){const u=unlocked[f.id];const e=await encryptObj(u.key,u.content);f.iv=e.iv;f.data=e.data}
+const stripFiles = files => (files||[]).map(({id,name,type,size})=>({id,name,type,size}));
+const stripNote = n => ({title:n.title||'',body:n.body||'',mood:n.mood||'',created:n.created||Date.now(),updated:n.updated||Date.now(),files:stripFiles(n.files)});
+
+/* ---------- Firestore I/O ---------- */
+async function putFolder(raw){
+  if(raw.locked) await setDoc(dref('folders',raw.id),{locked:true,salt:raw.salt,iv:raw.iv,data:raw.data,created:raw.created});
+  else await setDoc(dref('folders',raw.id),{locked:false,name:raw.name,icon:raw.icon,color:raw.color,created:raw.created});
+}
+async function saveFolderMeta(fv){
+  const raw=data.folders.find(x=>x.id===fv.id);
+  if(fv.locked){
+    const u=unlocked[fv.id];
+    const e=await encryptObj(u.key,{name:u.content.name,icon:u.content.icon,color:u.content.color});
+    raw.iv=e.iv;raw.data=e.data;
   }
-  await kvSet('data:'+me,data);
+  await putFolder(raw);
+}
+async function writeNote(fv,note){
+  const s=stripNote(note);
+  if(fv.locked){
+    const e=await encryptObj(unlocked[fv.id].key,s);
+    await setDoc(dref('notes',note.id),{folderId:fv.id,locked:true,updated:s.updated,iv:e.iv,data:e.data});
+  }else await setDoc(dref('notes',note.id),{folderId:fv.id,locked:false,...s});
+}
+async function writeBlob(fv,file){
+  if(fv.locked){
+    const bytes=new Uint8Array(await (await fetch(file.data)).arrayBuffer());
+    const e=await encryptBytes(unlocked[fv.id].key,bytes);
+    await setDoc(dref('blobs',file.id),{folderId:fv.id,locked:true,iv:e.iv,data:e.data});
+  }else await setDoc(dref('blobs',file.id),{folderId:fv.id,locked:false,data:file.data});
+}
+async function getBlobUrl(fv,file){
+  if(blobCache[file.id])return blobCache[file.id];
+  const s=await getDoc(dref('blobs',file.id));
+  if(!s.exists())return null;
+  const v=s.data();let url;
+  if(v.locked){
+    const bytes=await decryptBytes(unlocked[fv.id].key,v.iv,v.data);
+    url=URL.createObjectURL(new Blob([bytes],{type:file.type||'application/octet-stream'}));
+  }else url=v.data;
+  blobCache[file.id]=url;return url;
+}
+async function loadAll(){
+  const [fs,ns]=await Promise.all([getDocs(col('folders')),getDocs(query(col('notes'),where('locked','==',false)))]);
+  const folders=fs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.created||0)-(b.created||0));
+  for(const f of folders)if(!f.locked)f.notes=[];
+  for(const d of ns.docs){
+    const v=d.data();const f=folders.find(x=>x.id===v.folderId);
+    if(f&&!f.locked){const {folderId,locked,...n}=v;f.notes.push({files:[],...n,id:d.id})}
+  }
+  if(!folders.length){
+    const f={id:uid(),locked:false,name:'My Diary',icon:'📔',color:COLORS[0],created:Date.now(),notes:[]};
+    await putFolder(f);folders.push(f);
+  }
+  data={folders};
+}
+async function unlockWith(f,pw){
+  const key=await deriveKey(pw,fromB64(f.salt));
+  const meta=await decryptObj(key,f.iv,f.data);   // throws when password is wrong
+  const snap=await getDocs(query(col('notes'),where('folderId','==',f.id)));
+  const notes=[];
+  for(const d of snap.docs){
+    const v=d.data();if(!v.locked)continue;
+    try{const n=await decryptObj(key,v.iv,v.data);notes.push({files:[],...n,id:d.id})}catch(e){}
+  }
+  return {key,content:{...meta,notes},pw};
 }
 
 /* ---------- auth ---------- */
-let mode = 'login';
+let mode='login';
 function setMode(m){
   mode=m;
   $('#tab-login').classList.toggle('on',m==='login');
   $('#tab-signup').classList.toggle('on',m==='signup');
-  $('#a-go').textContent = m==='login' ? 'Login' : 'Create account';
-  $('#a-pass').autocomplete = m==='login' ? 'current-password' : 'new-password';
-  $('#a-err').textContent='';
+  $('#a-go').textContent=m==='login'?'Login':'Create account';
+  $('#a-pass').autocomplete=m==='login'?'current-password':'new-password';
+  $('#forgot-wrap').hidden=m!=='login';
+  $('#a-err').textContent='';$('#a-err').className='err';
 }
 $('#tab-login').onclick=()=>setMode('login');
 $('#tab-signup').onclick=()=>setMode('signup');
+function authMsg(x){
+  const c=x&&x.code||'';
+  if(c==='auth/invalid-credential'||c==='auth/wrong-password'||c==='auth/user-not-found')return 'Email illa password thappu 😕';
+  if(c==='auth/email-already-in-use')return 'Indha email already irukku. Login pannunga.';
+  if(c==='auth/weak-password')return 'Password kuranja 6 characters venum.';
+  if(c==='auth/invalid-email')return 'Email sariya illa.';
+  if(c==='auth/too-many-requests')return 'Neraiya try pannitteenga. Konjam neram kazhichu try pannunga.';
+  if(c==='auth/network-request-failed')return 'Internet connection check pannunga.';
+  if(c==='auth/unauthorized-domain')return 'Indha website Firebase-la authorize aagala (Authorized domains-la add pannunga).';
+  return 'Error: '+(x&&x.message||x);
+}
 $('#auth-form').addEventListener('submit',async e=>{
-  e.preventDefault();
-  const email=$('#a-email').value.trim().toLowerCase(), pw=$('#a-pass').value;
-  const err=$('#a-err'); err.textContent='';
+  e.preventDefault();if(!configured)return;
+  const email=$('#a-email').value.trim(),pw=$('#a-pass').value,err=$('#a-err');
+  err.textContent='';err.className='err';$('#a-go').disabled=true;
   try{
-    const u = await kvGet('user:'+email);
-    if(mode==='signup'){
-      if(u){err.textContent='Indha email already irukku. Login pannunga.';return}
-      const salt=crypto.getRandomValues(new Uint8Array(16));
-      await kvSet('user:'+email,{salt:toB64(salt),hash:await hashPw(pw,salt)});
-      await kvSet('data:'+email,{folders:[{id:uid(),name:'My Diary',icon:'📔',color:COLORS[0],notes:[]}]});
-    }else{
-      if(!u){err.textContent='Account illa. Sign up pannunga.';return}
-      if(await hashPw(pw,fromB64(u.salt))!==u.hash){err.textContent='Password thappu 😕';return}
-    }
-    localStorage.setItem('pd_session',email);
-    await startSession(email);
-  }catch(x){err.textContent='Error: '+x.message}
+    if(mode==='signup')await createUserWithEmailAndPassword(auth,email,pw);
+    else await signInWithEmailAndPassword(auth,email,pw);
+  }catch(x){err.textContent=authMsg(x)}
+  finally{$('#a-go').disabled=false}
 });
-async function startSession(email){
-  me=email; data=await kvGet('data:'+email)||{folders:[]};
-  unlocked={}; view={name:'home'}; draft=null;
-  $('#auth').hidden=true; $('#app').hidden=false; $('#who').textContent=email; $('#q').value='';
+$('#forgot').onclick=async()=>{
+  const err=$('#a-err'),email=$('#a-email').value.trim();
+  if(!configured)return;
+  if(!email){err.className='err';err.textContent='Mudhalla email type pannunga, appuram click pannunga.';return}
+  try{await sendPasswordResetEmail(auth,email);err.className='ok';err.textContent='Reset link mail-ku anuppitten ✅ (Spam folder-um paarunga)'}
+  catch(x){err.className='err';err.textContent=authMsg(x)}
+};
+function showAuth(){
+  me=null;data={folders:[]};unlocked={};draft=null;blobCache={};view={name:'home'};
+  $('#app').hidden=true;$('#auth').hidden=false;$('#a-pass').value='';$('#q').value='';
+}
+async function startSession(user){
+  me=user.uid;myEmail=user.email||'';
+  unlocked={};view={name:'home'};draft=null;blobCache={};
+  $('#auth').hidden=true;$('#app').hidden=false;$('#who').textContent=myEmail;$('#q').value='';
+  $('#main').innerHTML='<div class="hint">Loading... ⏳</div>';
+  try{await loadAll()}
+  catch(x){
+    $('#main').innerHTML='<div class="card" style="padding:20px"><h2 style="margin-top:0">😕 Data load aagala</h2><p>'+esc(x.message||x)+'</p><p>Firestore <b>Rules</b> sariya publish pannirukkeengala nu check pannunga.</p></div>';
+    return;
+  }
   render();
 }
-$('#logout').onclick=()=>{localStorage.removeItem('pd_session');me=null;data=null;unlocked={};draft=null;$('#app').hidden=true;$('#auth').hidden=false;$('#a-pass').value='';$('#q').value=''};
+if(configured)onAuthStateChanged(auth,user=>{if(user)startSession(user);else showAuth()});
+else{$('#setup-notice').hidden=false;$('#a-go').disabled=true}
+$('#logout').onclick=async()=>{
+  if(draft?.dirty&&!confirm('Save pannala. Podhum nu logout pannalama?'))return;
+  await signOut(auth);
+};
 $('#logo').onclick=()=>goHome();
-(async()=>{const s=localStorage.getItem('pd_session');if(s&&await kvGet('user:'+s))startSession(s)})();
 
 /* ---------- navigation ---------- */
 function goHome(){
-  if(draft?.dirty && !confirm('Save pannala. Podhum nu poidalama?'))return;
-  draft=null; view={name:'home'}; unlocked={}; $('#q').value=''; render();
+  if(draft?.dirty&&!confirm('Save pannala. Podhum nu poidalama?'))return;
+  draft=null;view={name:'home'};unlocked={};blobCache={};$('#q').value='';render();
 }
 function openFolder(id){view={name:'folder',id};draft=null;$('#q').value='';render()}
 
 /* ---------- search (also reveals secret folders) ---------- */
-let st;
+let st,searchTok=0;
 $('#q').addEventListener('input',()=>{clearTimeout(st);st=setTimeout(onSearch,350);if(view.name==='folder')render()});
 async function onSearch(){
   const q=$('#q').value;
   if(view.name!=='home'){render();return}
+  const tok=++searchTok;
   const next={};
   if(q){
     for(const f of data.folders.filter(f=>f.locked)){
       if(unlocked[f.id]&&unlocked[f.id].pw===q){next[f.id]=unlocked[f.id];continue}
-      try{
-        const key=await deriveKey(q,fromB64(f.salt));
-        const content=await decryptObj(key,f.iv,f.data);
-        next[f.id]={key,content,pw:q};
-      }catch(e){/* wrong password = stays hidden */}
+      try{next[f.id]=await unlockWith(f,q)}catch(e){/* wrong password = stays hidden */}
+      if(tok!==searchTok)return;
     }
   }
+  if(tok!==searchTok)return;
   unlocked=next;
   render();
 }
@@ -256,7 +372,6 @@ function render(){
     m.innerHTML=renderFolder(f);
   }
 }
-
 function renderHome(){
   const q=$('#q').value.trim().toLowerCase();
   const all=visibleFolders();
@@ -273,7 +388,7 @@ function renderHome(){
   if(q){
     const hits=[];
     for(const f of all)for(const n of f.c.notes){
-      if((n.title+' '+n.body).toLowerCase().includes(q))hits.push({f,n});
+      if(((n.title||'')+' '+(n.body||'')).toLowerCase().includes(q))hits.push({f,n});
     }
     if(hits.length){
       h+='<div class="results"><h2 class="title">📝 Notes found</h2>';
@@ -283,11 +398,10 @@ function renderHome(){
   }
   return h;
 }
-
 function renderFolder(f){
   const q=$('#q').value.trim().toLowerCase();
   let notes=[...f.c.notes].sort((a,b)=>b.updated-a.updated);
-  if(q)notes=notes.filter(n=>(n.title+' '+n.body).toLowerCase().includes(q));
+  if(q)notes=notes.filter(n=>((n.title||'')+' '+(n.body||'')).toLowerCase().includes(q));
   let h=`<div class="bar">
     <button class="btn" data-act="back">⬅ Back</button>
     <h2 class="title grow" style="margin:0">${f.locked?'🔒 ':''}${esc(f.c.icon)} ${esc(f.c.name)}</h2>
@@ -307,17 +421,56 @@ function renderFolder(f){
     h+=`<label>Title</label><input type="text" id="n-title" maxlength="80" value="${esc(draft.title)}" placeholder="Innaiku enna nadanthuchu?">
     <label>Mood</label><div class="moods">${MOODS.map(m=>`<button type="button" data-act="mood" data-v="${m}" class="${draft.mood===m?'sel':''}">${m}</button>`).join('')}</div>
     <label>Diary</label><textarea id="n-body" placeholder="Inge ezhuthunga...">${esc(draft.body)}</textarea>
-    <label>📎 Files (photo, pdf, edhuvum - max 3MB)</label>
+    <label>📎 Files (photo auto-shrink aagum. Mattha files max 550KB)</label>
     <input type="file" id="n-file" multiple>
-    <div class="files">${draft.files.map((x,i)=>`<div class="file">${(x.type||'').startsWith('image/')?`<img src="${x.data}" alt="">`:''}<a href="${x.data}" download="${esc(x.name)}" target="_blank" rel="noopener">${esc(x.name)}</a><br><button class="btn sm" data-act="rm-file" data-i="${i}">✖</button></div>`).join('')}</div>
+    <div class="files">${draft.files.map((x,i)=>`<div class="file">${x.data&&(x.type||'').startsWith('image/')?`<img src="${x.data}" alt="">`:''}${x.data?`<a href="${x.data}" download="${esc(x.name)}" target="_blank" rel="noopener">${esc(x.name)}</a>`:`<span>⏳ ${esc(x.name)}</span>`}<small class="t">${Math.round((x.size||0)/1024)} KB</small><button class="btn sm" data-act="rm-file" data-i="${i}">✖</button></div>`).join('')}</div>
     <div class="row" style="justify-content:space-between"><button class="btn pri" data-act="del-note">🗑 Delete</button><button class="btn green" data-act="save-note">💾 Save</button></div>`;
   }
   return h+'</div></div>';
 }
 
+/* ---------- notes ---------- */
+function openNote(id){
+  const f=findFolder(view.id);const n=f?.c.notes.find(n=>n.id===id);if(!n)return;
+  draft={...JSON.parse(JSON.stringify(n)),removed:[],dirty:false};
+  draft.files=(draft.files||[]).map(x=>({...x,data:blobCache[x.id]||null}));
+  render();loadDraftFiles();
+}
+async function loadDraftFiles(){
+  const d=draft,fv=findFolder(view.id);if(!d||!fv)return;
+  let changed=false;
+  for(const x of d.files){
+    if(x.data||x.fresh)continue;
+    try{x.data=await getBlobUrl(fv,x);changed=true}catch(e){}
+    if(draft!==d)return;
+  }
+  if(changed&&draft===d)render();
+}
+async function prepFile(file){
+  if((file.type||'').startsWith('image/')&&file.type!=='image/gif'){
+    const bmp=await createImageBitmap(file);
+    let max=1280,q=.75,out='';
+    for(let i=0;i<6;i++){
+      const sc=Math.min(1,max/Math.max(bmp.width,bmp.height));
+      const c=document.createElement('canvas');c.width=Math.max(1,Math.round(bmp.width*sc));c.height=Math.max(1,Math.round(bmp.height*sc));
+      c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+      out=c.toDataURL('image/jpeg',q);
+      if(out.length<700000)break;
+      max*=.75;q=Math.max(.5,q-.05);
+    }
+    if(out.length>=900000)return null;
+    return {name:file.name.replace(/\.\w+$/,'')+'.jpg',type:'image/jpeg',data:out,size:Math.round(out.length*.75)};
+  }
+  if(file.size>550*1024)return null;
+  return {name:file.name,type:file.type||'application/octet-stream',data:await blobToDataURL(file),size:file.size};
+}
+
 /* ---------- click handling ---------- */
 document.addEventListener('click',async e=>{
   const el=e.target.closest('[data-act]');if(!el||!me)return;
+  try{await handleAct(el)}catch(x){console.error(x);toast('Error: '+(x.message||x))}
+});
+async function handleAct(el){
   const act=el.dataset.act,id=el.dataset.id;
   if(act==='new-folder')return folderModal(null);
   if(act==='open-folder')return openFolder(id);
@@ -328,15 +481,21 @@ document.addEventListener('click',async e=>{
   if(act==='edit-folder')return folderModal(f);
   if(act==='lock-folder')return lockModal(f);
   if(act==='unlock-folder')return removeLock(f);
-  if(act==='hide-folder'){await persist();unlocked={};draft=null;view={name:'home'};$('#q').value='';render();return toast('Folder maraichachu 🙈')}
+  if(act==='hide-folder'){unlocked={};blobCache={};draft=null;view={name:'home'};$('#q').value='';render();return toast('Folder maraichachu 🙈')}
   if(act==='del-folder'){
     if(!confirm(`"${f.c.name}" folder-a, ulla ella notes-oda delete pannalama?`))return;
+    toast('Deleting... ⏳');
+    const ns=await getDocs(query(col('notes'),where('folderId','==',f.id)));
+    for(const d of ns.docs)await deleteDoc(d.ref);
+    const bs=await getDocs(query(col('blobs'),where('folderId','==',f.id)));
+    for(const d of bs.docs)await deleteDoc(d.ref);
+    await deleteDoc(dref('folders',f.id));
     data.folders=data.folders.filter(x=>x.id!==f.id);delete unlocked[f.id];
-    await persist();draft=null;view={name:'home'};render();return toast('Folder deleted');
+    draft=null;view={name:'home'};render();return toast('Folder deleted');
   }
   if(act==='new-note'){
     if(draft?.dirty&&!confirm('Save pannala. Podhum nu poidalama?'))return;
-    draft={id:uid(),title:'',body:'',mood:'😊',files:[],created:Date.now(),updated:Date.now(),isNew:true,dirty:false};
+    draft={id:uid(),title:'',body:'',mood:'😊',files:[],removed:[],created:Date.now(),updated:Date.now(),isNew:true,dirty:false};
     render();return;
   }
   if(act==='open-note'){
@@ -344,24 +503,38 @@ document.addEventListener('click',async e=>{
     return openNote(id);
   }
   if(act==='mood'){draft.mood=el.dataset.v;draft.dirty=true;render();return}
-  if(act==='rm-file'){draft.files.splice(+el.dataset.i,1);draft.dirty=true;render();return}
+  if(act==='rm-file'){
+    const x=draft.files.splice(+el.dataset.i,1)[0];
+    if(x&&!x.fresh)draft.removed.push(x.id);
+    draft.dirty=true;render();return;
+  }
   if(act==='save-note'){
     if(!draft.title.trim()&&!draft.body.trim()&&!draft.files.length)return toast('Edhavadhu ezhuthunga 😅');
-    const {isNew,dirty,...note}=draft;note.updated=Date.now();
+    const note={id:draft.id,title:draft.title,body:draft.body,mood:draft.mood,created:draft.created,updated:Date.now(),files:stripFiles(draft.files)};
+    toast('Saving... ⏳');
+    el.disabled=true;
+    try{
+      for(const x of draft.files)if(x.fresh){await writeBlob(f,x);blobCache[x.id]=x.data}
+      for(const rid of draft.removed)await deleteDoc(dref('blobs',rid));
+      await writeNote(f,note);
+    }catch(x){el.disabled=false;return toast('Save aagala: '+(x.message||x))}
     const i=f.c.notes.findIndex(n=>n.id===note.id);
     if(i>=0)f.c.notes[i]=note;else f.c.notes.push(note);
-    try{await persist()}catch(x){return toast('Save aagala: '+x.message)}
-    draft={...note,isNew:false,dirty:false};render();return toast('Saved ✅');
+    draft={...note,files:draft.files.map(x=>({id:x.id,name:x.name,type:x.type,size:x.size,data:x.data})),removed:[],isNew:false,dirty:false};
+    render();return toast('Saved ✅');
   }
   if(act==='del-note'){
     if(!confirm('Indha note-a delete pannalama?'))return;
-    f.c.notes=f.c.notes.filter(n=>n.id!==draft.id);
-    await persist();draft=null;render();return toast('Note deleted');
+    const saved=f.c.notes.find(n=>n.id===draft.id);
+    if(saved){
+      toast('Deleting... ⏳');
+      const ids=new Set([...(saved.files||[]).map(x=>x.id),...(draft.removed||[])]);
+      for(const bid of ids)await deleteDoc(dref('blobs',bid));
+      await deleteDoc(dref('notes',saved.id));
+      f.c.notes=f.c.notes.filter(n=>n.id!==saved.id);
+    }
+    draft=null;render();return toast('Note deleted');
   }
-});
-function openNote(id){
-  const f=findFolder(view.id);const n=f?.c.notes.find(n=>n.id===id);if(!n)return;
-  draft=JSON.parse(JSON.stringify(n));draft.files=draft.files||[];draft.dirty=false;render();
 }
 document.addEventListener('input',e=>{
   if(!draft)return;
@@ -370,10 +543,14 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',async e=>{
   if(e.target.id!=='n-file'||!draft)return;
-  for(const file of e.target.files){
-    if(file.size>3*1024*1024){toast('Romba periya file: '+file.name);continue}
-    const d=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(file)});
-    draft.files.push({name:file.name,type:file.type,data:d});
+  const files=[...e.target.files];
+  toast('File ready aagudhu... ⏳');
+  for(const file of files){
+    try{
+      const p=await prepFile(file);
+      if(!p){toast('Romba periya file: '+file.name+' (max 550KB)');continue}
+      draft.files.push({id:uid(),fresh:true,...p});
+    }catch(x){toast('Indha file add panna mudiyala: '+file.name)}
   }
   draft.dirty=true;render();
 });
@@ -394,21 +571,27 @@ function folderModal(f){
   pick('#fm-icons',v=>icon=v);pick('#fm-colors',v=>color=v);
   const lk=box.querySelector('#fm-lock');if(lk)lk.onchange=()=>box.querySelector('#fm-pw').hidden=!lk.checked;
   box.querySelector('#fm-cancel').onclick=closeModal;
-  box.querySelector('#fm-ok').onclick=async()=>{
+  const ok=box.querySelector('#fm-ok');
+  ok.onclick=async()=>{
     const name=box.querySelector('#fm-name').value.trim();if(!name)return toast('Name venum 🙂');
-    if(f){f.c.name=name;f.c.icon=icon;f.c.color=color;await persist();closeModal();render();return}
-    const content={name,icon,color,notes:[]};
-    if(lk&&lk.checked){
-      const p1=box.querySelector('#fm-p1').value,p2=box.querySelector('#fm-p2').value;
-      if(p1.length<4)return toast('Password kuranja 4 characters venum');
-      if(p1!==p2)return toast('Rendu password-um match aagala');
-      const salt=crypto.getRandomValues(new Uint8Array(16));
-      const key=await deriveKey(p1,salt);const e=await encryptObj(key,content);
-      data.folders.push({id:uid(),locked:true,salt:toB64(salt),iv:e.iv,data:e.data});
-      await kvSet('data:'+me,data);closeModal();render();
-      return toast('Locked! 🔒 Search-la password type panna thaan theriyum');
-    }
-    data.folders.push({id:uid(),...content});await persist();closeModal();render();
+    ok.disabled=true;
+    try{
+      if(f){f.c.name=name;f.c.icon=icon;f.c.color=color;await saveFolderMeta(f);closeModal();render();return}
+      const created=Date.now(),id=uid();
+      if(lk&&lk.checked){
+        const p1=box.querySelector('#fm-p1').value,p2=box.querySelector('#fm-p2').value;
+        if(p1.length<4){ok.disabled=false;return toast('Password kuranja 4 characters venum')}
+        if(p1!==p2){ok.disabled=false;return toast('Rendu password-um match aagala')}
+        const salt=crypto.getRandomValues(new Uint8Array(16));
+        const key=await deriveKey(p1,salt);const e=await encryptObj(key,{name,icon,color});
+        const raw={id,locked:true,salt:toB64(salt),iv:e.iv,data:e.data,created};
+        await putFolder(raw);data.folders.push(raw);
+        closeModal();render();
+        return toast('Locked! 🔒 Search-la password type panna thaan theriyum');
+      }
+      const raw={id,locked:false,name,icon,color,created,notes:[]};
+      await putFolder(raw);data.folders.push(raw);closeModal();render();
+    }catch(x){ok.disabled=false;toast('Save aagala: '+(x.message||x))}
   };
 }
 function lockModal(f){
@@ -418,23 +601,51 @@ function lockModal(f){
     <small class="t">Lock aanathum folder maraindhidum. Home-la search box-la indha password type pannunga, folder thirumba varum. Password maranthuta recover panna mudiyathu!</small>
     <div class="row"><button class="btn" id="lk-c">Cancel</button><button class="btn pri" id="lk-ok">Lock it</button></div>`);
   box.querySelector('#lk-c').onclick=closeModal;
-  box.querySelector('#lk-ok').onclick=async()=>{
+  const btn=box.querySelector('#lk-ok');
+  btn.onclick=async()=>{
     const p1=box.querySelector('#lk1').value,p2=box.querySelector('#lk2').value;
     if(p1.length<4)return toast('Password kuranja 4 characters venum');
     if(p1!==p2)return toast('Rendu password-um match aagala');
-    const salt=crypto.getRandomValues(new Uint8Array(16));
-    const key=await deriveKey(p1,salt);const e=await encryptObj(key,f.c);
-    const i=data.folders.findIndex(x=>x.id===f.id);
-    data.folders[i]={id:f.id,locked:true,salt:toB64(salt),iv:e.iv,data:e.data};
-    await kvSet('data:'+me,data);closeModal();draft=null;view={name:'home'};$('#q').value='';unlocked={};render();
+    btn.disabled=true;toast('Locking... ⏳');
+    try{
+      const idx=data.folders.findIndex(x=>x.id===f.id),raw=data.folders[idx];
+      const salt=crypto.getRandomValues(new Uint8Array(16));
+      const key=await deriveKey(p1,salt);
+      for(const n of raw.notes){
+        for(const file of n.files||[]){
+          const url=await getBlobUrl(f,file);if(!url)continue;
+          const bytes=new Uint8Array(await (await fetch(url)).arrayBuffer());
+          const e=await encryptBytes(key,bytes);
+          await setDoc(dref('blobs',file.id),{folderId:f.id,locked:true,iv:e.iv,data:e.data});
+        }
+        const en=await encryptObj(key,stripNote(n));
+        await setDoc(dref('notes',n.id),{folderId:f.id,locked:true,updated:n.updated||0,iv:en.iv,data:en.data});
+      }
+      const meta=await encryptObj(key,{name:raw.name,icon:raw.icon,color:raw.color});
+      const lockedRaw={id:raw.id,locked:true,salt:toB64(salt),iv:meta.iv,data:meta.data,created:raw.created};
+      await putFolder(lockedRaw);data.folders[idx]=lockedRaw;
+    }catch(x){btn.disabled=false;return toast('Lock aagala: '+(x.message||x))}
+    closeModal();draft=null;view={name:'home'};$('#q').value='';unlocked={};blobCache={};render();
     toast('Locked! 🔒 Search-la password type panni thirumba paarunga');
   };
 }
 async function removeLock(f){
   if(!confirm('Lock-a edukkalama? Folder normal-a ellarukkum theriyum.'))return;
-  const i=data.folders.findIndex(x=>x.id===f.id);
-  data.folders[i]={id:f.id,...f.c};delete unlocked[f.id];
-  await kvSet('data:'+me,data);render();toast('Lock removed 🔓');
+  toast('Unlocking... ⏳');
+  try{
+    const u=unlocked[f.id],idx=data.folders.findIndex(x=>x.id===f.id),raw=data.folders[idx];
+    for(const n of u.content.notes){
+      for(const file of n.files||[]){
+        const url=await getBlobUrl(f,file);if(!url)continue;
+        const du=url.startsWith('data:')?url:await blobToDataURL(await (await fetch(url)).blob());
+        await setDoc(dref('blobs',file.id),{folderId:f.id,locked:false,data:du});
+      }
+      await setDoc(dref('notes',n.id),{folderId:f.id,locked:false,...stripNote(n)});
+    }
+    const plain={id:f.id,locked:false,name:u.content.name,icon:u.content.icon,color:u.content.color,created:raw.created,notes:u.content.notes};
+    await putFolder(plain);data.folders[idx]=plain;delete unlocked[f.id];
+  }catch(x){return toast('Lock edukka mudiyala: '+(x.message||x))}
+  render();toast('Lock removed 🔓');
 }
 </script>
 </body>
